@@ -8,7 +8,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!uid) redirect("/login")
 
   const masterUid = process.env.ADMIN_MASTER_UID
-  if (!masterUid || uid !== masterUid) redirect("/dashboard")
+  if (!masterUid) redirect("/dashboard")
+
+  if (uid !== masterUid) redirect("/dashboard")
 
   return <>{children}</>
 }

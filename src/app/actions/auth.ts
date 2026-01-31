@@ -3,47 +3,44 @@
 import { cookies } from "next/headers"
 import { adminAuth } from "@/lib/firebase-admin"
 
-export type ActionResult = {
-  success: boolean
-  message: string
-}
+export type ActionResult = { success: boolean; message: string }
 
 const COOKIE_NAME = "__session"
 const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000
 
 export async function createSessionAction(
-  _: unknown,
+  _: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
   try {
     const idToken = String(formData.get("idToken") ?? "")
-    if (!idToken) {
-      return { success: false, message: "Token ausente." }
-    }
+    if (!idToken) return { success: false, message: "Token ausente." }
 
     const sessionCookie = await adminAuth.createSessionCookie(idToken, {
       expiresIn: FIVE_DAYS_MS,
     })
 
-    cookies().set(COOKIE_NAME, sessionCookie, {
+    const cookieStore = await cookies()
+    cookieStore.set(COOKIE_NAME, sessionCookie, {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
       maxAge: Math.floor(FIVE_DAYS_MS / 1000),
     })
 
     return { success: true, message: "Sessão criada." }
-  } catch (error) {
-    return { success: false, message: "Falha ao criar sessão." }
+  } catch {
+    return { success: false, message: "Falha ao autenticar." }
   }
 }
 
 export async function logoutAction(): Promise<ActionResult> {
   try {
-    cookies().set(COOKIE_NAME, "", {
+    const cookieStore = await cookies()
+    cookieStore.set(COOKIE_NAME, "", {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
       maxAge: 0,
