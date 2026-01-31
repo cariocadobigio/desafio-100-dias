@@ -1,6 +1,7 @@
 "use server"
 
 import { cookies } from "next/headers"
+import { redirect } from "next/navigation" // Adicionado para redirecionar
 import { adminAuth } from "@/lib/firebase-admin"
 
 export type ActionResult = { success: boolean; message: string }
@@ -35,19 +36,19 @@ export async function createSessionAction(
   }
 }
 
-export async function logoutAction(): Promise<ActionResult> {
-  try {
-    const cookieStore = await cookies()
-    cookieStore.set(COOKIE_NAME, "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 0,
-    })
+// CORREÇÃO: Retorna Promise<void> e faz redirect
+export async function logoutAction(_?: FormData): Promise<void> {
+  const cookieStore = await cookies()
+  
+  // Limpa o cookie da sessão
+  cookieStore.set(COOKIE_NAME, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  })
 
-    return { success: true, message: "Logout efetuado." }
-  } catch {
-    return { success: false, message: "Falha ao sair." }
-  }
+  // Redireciona para o login (isso lança um erro interno do Next.js, por isso não usamos try/catch aqui)
+  redirect("/login")
 }

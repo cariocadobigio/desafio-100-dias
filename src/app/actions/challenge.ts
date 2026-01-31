@@ -3,7 +3,7 @@
 import { z } from "zod"
 import { adminDb } from "@/lib/firebase-admin"
 import { getSessionUid } from "@/lib/session"
-import { revalidatePath } from "next/cache" // <--- Importante
+import { revalidatePath } from "next/cache"
 import type { ActionResult } from "./auth"
 
 const ToggleSchema = z.object({
@@ -35,9 +35,25 @@ export async function toggleDayAction(input: { day: number }): Promise<ActionRes
       tx.set(ref, { uid, doneDays: next, updatedAt: Date.now() }, { merge: true })
     })
 
-    revalidatePath("/dashboard") // <--- Adicione isto para atualizar a UI
+    revalidatePath("/dashboard")
     return { success: true, message: "Progresso atualizado." }
   } catch {
     return { success: false, message: "Falha ao atualizar progresso." }
+  }
+}
+
+export async function resetProgressAction(): Promise<ActionResult> {
+  try {
+    const uid = await getSessionUid()
+    if (!uid) return { success: false, message: "Não autenticado." }
+
+    const ref = adminDb.doc(`users/${uid}/challenge/progress`)
+    
+    await ref.set({ uid, doneDays: [], updatedAt: Date.now() }, { merge: true })
+
+    revalidatePath("/dashboard")
+    return { success: true, message: "Progresso resetado com sucesso." }
+  } catch {
+    return { success: false, message: "Erro ao resetar progresso." }
   }
 }
