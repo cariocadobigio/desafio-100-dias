@@ -3,6 +3,7 @@
 import { z } from "zod"
 import { adminDb } from "@/lib/firebase-admin"
 import { getSessionUid } from "@/lib/session"
+import { revalidatePath } from "next/cache" // <--- Importante
 import type { ActionResult } from "./auth"
 
 const ToggleSchema = z.object({
@@ -23,7 +24,7 @@ export async function toggleDayAction(input: { day: number }): Promise<ActionRes
 
     const { day } = parsed.data
 
-    await adminDb.runTransaction(async (tx: { get: (arg0: any) => any; set: (arg0: any, arg1: { uid: string; doneDays: number[]; updatedAt: number }, arg2: { merge: boolean }) => void }) => {
+    await adminDb.runTransaction(async (tx) => {
       const ref = progressDocRef(uid)
       const snap = await tx.get(ref)
 
@@ -34,6 +35,7 @@ export async function toggleDayAction(input: { day: number }): Promise<ActionRes
       tx.set(ref, { uid, doneDays: next, updatedAt: Date.now() }, { merge: true })
     })
 
+    revalidatePath("/dashboard") // <--- Adicione isto para atualizar a UI
     return { success: true, message: "Progresso atualizado." }
   } catch {
     return { success: false, message: "Falha ao atualizar progresso." }

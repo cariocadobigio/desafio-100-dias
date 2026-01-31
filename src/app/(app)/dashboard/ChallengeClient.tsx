@@ -2,6 +2,7 @@
 
 import { useOptimistic, useTransition } from "react"
 import { toggleDayAction } from "@/app/actions/challenge"
+import confetti from "canvas-confetti"
 
 type Props = {
   initialDoneDays: number[]
@@ -13,6 +14,7 @@ function getTotal(doneDays: number[]) {
 
 export default function ChallengeClient({ initialDoneDays }: Props) {
   const [isPending, startTransition] = useTransition()
+  
   const [optimisticDays, setOptimisticDays] = useOptimistic(
     initialDoneDays,
     (state: number[], day: number) => {
@@ -24,36 +26,60 @@ export default function ChallengeClient({ initialDoneDays }: Props) {
 
   const total = getTotal(optimisticDays)
   const progressPct = (optimisticDays.length / 100) * 100
+  const GOAL = 5050
 
   function onToggle(day: number) {
-    setOptimisticDays(day)
+    const isCompleting = !optimisticDays.includes(day)
+    
+    if (isCompleting) {
+      confetti({
+        particleCount: 50,
+        spread: 60,
+        origin: { y: 0.7 },
+        colors: ['#10b981', '#34d399', '#059669']
+      })
+    }
 
-    startTransition(async () => {
-      await toggleDayAction({ day })
+    // CORREÇÃO: Removemos o async/await daqui.
+    // O setOptimisticDays roda imediatamente (síncrono)
+    // e a toggleDayAction roda em background, gerida pelo startTransition.
+    startTransition(() => {
+      setOptimisticDays(day) 
+      toggleDayAction({ day })
     })
   }
 
   return (
-    <section className="space-y-4">
-      <div className="rounded-2xl bg-white p-5 shadow">
-        <div className="flex items-center justify-between">
+    <section className="space-y-6 max-w-4xl mx-auto">
+      {/* Cartão Principal */}
+      <div className="rounded-2xl bg-white p-6 shadow-sm border border-neutral-200">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-4">
           <div>
-            <p className="text-sm text-neutral-500">Total economizado</p>
-            <p className="text-3xl font-bold">R$ {total.toFixed(2)}</p>
+            <p className="text-sm font-medium text-neutral-500">Saldo Atual</p>
+            <h2 className="text-4xl font-extrabold text-emerald-600">
+              R$ {total.toFixed(2)}
+            </h2>
+            <p className="text-xs text-neutral-400 mt-1">
+              Meta: R$ {GOAL.toFixed(2)}
+            </p>
           </div>
-          <div className="text-right">
-            <p className="text-sm text-neutral-500">Progresso</p>
-            <p className="text-xl font-semibold">{progressPct.toFixed(0)}%</p>
+          
+          <div className="flex-1 sm:max-w-xs w-full">
+            <div className="flex justify-between text-xs mb-2 font-medium">
+              <span className="text-emerald-700">{progressPct.toFixed(0)}%</span>
+              <span className="text-neutral-400">100 Dias</span>
+            </div>
+            <div className="h-3 w-full rounded-full bg-neutral-100 overflow-hidden">
+              <div 
+                className="h-full bg-emerald-500 transition-all duration-700 ease-out shadow-[0_0_10px_rgba(16,185,129,0.5)]" 
+                style={{ width: `${progressPct}%` }} 
+              />
+            </div>
           </div>
         </div>
-
-        <div className="mt-4 h-2 w-full rounded-full bg-neutral-200">
-          <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${progressPct}%` }} />
-        </div>
-
-        {isPending && <p className="mt-3 text-xs text-neutral-500">Salvando...</p>}
       </div>
 
+      {/* Grid de Dias */}
       <div className="grid grid-cols-5 gap-2 sm:grid-cols-10">
         {Array.from({ length: 100 }, (_, i) => i + 1).map((day) => {
           const done = optimisticDays.includes(day)
@@ -62,16 +88,28 @@ export default function ChallengeClient({ initialDoneDays }: Props) {
               key={day}
               type="button"
               onClick={() => onToggle(day)}
-              className={[
-                "rounded-xl px-2 py-3 text-sm font-semibold transition",
-                done ? "bg-emerald-500 text-white" : "bg-neutral-100 hover:bg-neutral-200",
-              ].join(" ")}
+              disabled={isPending}
+              className={`
+                relative overflow-hidden rounded-xl py-3 text-sm font-bold transition-all duration-200
+                ${done 
+                  ? "bg-emerald-500 text-white shadow-md scale-95 ring-2 ring-emerald-300" 
+                  : "bg-white text-neutral-600 hover:bg-neutral-50 hover:scale-105 border border-neutral-200"}
+              `}
             >
               {day}
+              {done && (
+                <span className="absolute inset-0 bg-white/20 animate-pulse" />
+              )}
             </button>
           )
         })}
       </div>
+      
+      {isPending && (
+        <p className="text-center text-xs text-neutral-400 animate-pulse">
+          A sincronizar...
+        </p>
+      )}
     </section>
   )
 }
