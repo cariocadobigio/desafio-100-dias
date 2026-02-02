@@ -10,6 +10,11 @@ const ToggleSchema = z.object({
   day: z.number().int().min(1).max(100),
 })
 
+const GoalSchema = z.object({
+  title: z.string().min(1, "O objetivo não pode estar vazio.").max(40, "O nome do objetivo é muito longo."),
+  totalDays: z.coerce.number().int().min(10).max(100),
+})
+
 function progressDocRef(uid: string) {
   return adminDb.doc(`users/${uid}/challenge/progress`)
 }
@@ -47,13 +52,44 @@ export async function resetProgressAction(): Promise<ActionResult> {
     const uid = await getSessionUid()
     if (!uid) return { success: false, message: "Não autenticado." }
 
-    const ref = adminDb.doc(`users/${uid}/challenge/progress`)
-    
+    const ref = progressDocRef(uid)
     await ref.set({ uid, doneDays: [], updatedAt: Date.now() }, { merge: true })
 
     revalidatePath("/dashboard")
-    return { success: true, message: "Progresso resetado com sucesso." }
+    return { success: true, message: "Progresso resetado." }
   } catch {
-    return { success: false, message: "Erro ao resetar progresso." }
+    return { success: false, message: "Erro ao resetar." }
+  }
+}
+
+export async function saveGoalAction(formData: FormData): Promise<ActionResult> {
+  try {
+    const uid = await getSessionUid()
+    if (!uid) return { success: false, message: "Não autenticado." }
+
+    const rawData = {
+      title: formData.get("title"),
+      totalDays: formData.get("totalDays"),
+    }
+
+    const parsed = GoalSchema.safeParse(rawData)
+
+    if (!parsed.success) {
+      // CORREÇÃO: Usamos .issues em vez de .errors
+      const errorMessage = parsed.error.issues[0]?.message ?? "Dados inválidos."
+      return { success: false, message: errorMessage }
+    }
+
+    const ref = progressDocRef(uid)
+    await ref.set({ 
+      goal: parsed.data.title, 
+      totalDays: parsed.data.totalDays,
+      updatedAt: Date.now() 
+    }, { merge: true })
+
+    revalidatePath("/dashboard")
+    return { success: true, message: "Objetivo definido com sucesso!" }
+  } catch {
+    return { success: false, message: "Erro ao salvar objetivo." }
   }
 }
